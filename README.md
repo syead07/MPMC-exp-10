@@ -143,5 +143,4 @@ void main(void)
 - Patient assistance systems
 
 ## Result
-
 The push button was successfully interfaced with the AT89C51 microcontroller. The buzzer and speaker were activated when the push button was pressed and switched OFF when the button was released.
