@@ -1,211 +1,146 @@
-# Push-Button-Controlled-LED-Using-STM32-Microcontroller
-https://github.com/new
+# Push-Button-Controlled-Buzzer-and-Speaker-Using-AT89C51-Microcontroller
+Design and Implementation of a Push-Button-Controlled Buzzer and Speaker Using AT89C51 Microcontroller
+# Design and Implementation of a Push-Button-Controlled Buzzer and Speaker Using AT89C51 Microcontroller
+
 ## Aim
-To interface an external push button with an STM32 microcontroller and control the state of an LED based on the push-button input.
-## Apparatus Required
-S. No. Component Quantity 1 STM32 development board 1 2 Push button 1 3 LED 1 4 220–330 Ω resistor 1 5 10 kΩ resistor 1 6 Breadboard 1 7 Jumper wires As required 8 USB cable 1
+
+To interface a push button, buzzer, and speaker with the AT89C51 microcontroller and activate the audible indicators when the button is pressed.
+
+## Components Required
+
+| S. No. | Component | Specification | Quantity |
+|---:|---|---|---:|
+| 1 | Microcontroller | AT89C51 | 1 |
+| 2 | Push button | Normally open | 2 |
+| 3 | Buzzer | 5 V | 1 |
+| 4 | Speaker | Suitable low-power speaker | 1 |
+| 5 | NPN transistor | BC547 | 1 |
+| 6 | Base resistor | 330 Ω | 1 |
+| 7 | Pull-down resistor | 10 kΩ | 1 |
+| 8 | Reset resistor | 10 kΩ | 1 |
+| 9 | Capacitor | 0.1 µF | 1 |
+| 10 | Power supply | Regulated +5 V DC | 1 |
+| 11 | Connecting wires | As required | — |
+
+## Circuit Connections
+
+| AT89C51/Device Pin | Connection |
+|---|---|
+| `P1.2` (pin 3) | Input push button |
+| Input push-button terminal 1 | `+5 V` |
+| Input push-button terminal 2 | `P1.2` |
+| `R3` (10 kΩ) | Connected between `P1.2` and ground as a pull-down resistor |
+| `P3.2/INT0` (pin 12) | Connected to the BC547 base through a 330 Ω resistor |
+| BC547 emitter | Ground |
+| BC547 collector | Negative terminals of the buzzer and speaker |
+| Buzzer and speaker positive terminals | `+5 V` |
+| `RST` (pin 9) | Reset circuit containing a push button, capacitor, and 10 kΩ resistor |
+| `VCC` (pin 40) | `+5 V` |
+| `GND` (pin 20) | Ground |
+
+> **Note:** All devices must share a common ground. For a real inductive or magnetic buzzer, connect a flyback diode across it to protect the transistor. The AT89C51 also requires a suitable clock circuit connected to `XTAL1` and `XTAL2`.
+
+## Working Principle
+
+The push button connected to `P1.2` provides a digital input to the AT89C51 microcontroller. The 10 kΩ pull-down resistor keeps the input LOW when the button is released. When the button is pressed, it connects the input pin to `+5 V`, producing a HIGH logic level.
+
+The microcontroller continuously monitors the state of `P1.2`. When it detects a HIGH input, it makes `P3.2` HIGH. The resulting base current switches ON the BC547 transistor, allowing current to flow through the buzzer and speaker. Both devices then produce sound.
+
+When the push button is released, `P1.2` becomes LOW. The microcontroller makes `P3.2` LOW, switching OFF the transistor, buzzer, and speaker.
+
 ## Algorithm
-Step 1: Start the program. Step 2: Initialize the HAL library, system clock (64 MHz), and UART peripheral. Step 3: Enable clocks for GPIO Port A and Port C. Step 4: Configure pin PA5 (LD2) as digital output push-pull and pin PC13 (B1) as digital input with internal pull-up. Step 5: Set the initial state of the LED (PA5) to OFF (GPIO_PIN_RESET). Step 6: Initialize tracking variable last_toggle_time = 0 and set blink_interval_ms = 200. Step 7: Enter the infinite loop (while(1)). Step 8: Read the button state at pin PC13 using HAL_GPIO_ReadPin(). Step 9: Check if the button is pressed (active LOW: GPIO_PIN_RESET): If Pressed: Check if (HAL_GetTick() - last_toggle_time) >= blink_interval_ms. If the condition is met, update last_toggle_time = HAL_GetTick() and toggle the LED state (HAL_GPIO_TogglePin()). If Released (GPIO_PIN_SET): Force the LED OFF immediately (HAL_GPIO_WritePin() to RESET). Step 10: Repeat from Step 8 continuously. Step 11: Stop (program loop runs indefinitely).
-## program
-```/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body (Blink LED only on button hold)
-  ******************************************************************************
-  */
-/* USER CODE END Header */
 
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
+1. Start the system.
+2. Initialize the input and output pins.
+3. Configure `P1.2` as the push-button input.
+4. Configure `P3.2` as the buzzer-control output.
+5. Read the state of the push button.
+6. Check whether the button is pressed.
+7. If the button is pressed, make `P3.2` HIGH.
+8. Switch ON the transistor, buzzer, and speaker.
+9. If the button is released, make `P3.2` LOW.
+10. Switch OFF the transistor, buzzer, and speaker.
+11. Repeat the process continuously.
 
-/* Board Pin Fallbacks if not configured in STM32CubeMX / main.h */
-#ifndef B1_Pin
-#define B1_Pin            GPIO_PIN_13
-#define B1_GPIO_Port      GPIOC
-#endif
+## Embedded C Program
 
-#ifndef LD2_Pin
-#define LD2_Pin           GPIO_PIN_5
-#define LD2_GPIO_Port     GPIOA
-#endif
+```c
+#include <reg51.h>
 
-/* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart2;
+sbit BUTTON = P1^2;
+sbit BUZZER = P3^2;
 
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
-
-/* Private user code ---------------------------------------------------------*/
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
+void delay_ms(unsigned int ms)
 {
-    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-    HAL_Init();
+    unsigned int i, j;
 
-    /* Configure the system clock (64 MHz for STM32G0) */
-    SystemClock_Config();
+    for (i = 0; i < ms; i++)
+    {
+        for (j = 0; j < 112; j++)
+        {
+            /* Approximate delay */
+        }
+    }
+}
 
-    /* Initialize all configured peripherals */
-    MX_GPIO_Init();
-    MX_USART2_UART_Init();
+void main(void)
+{
+    /* Configure the button pin as input */
+    BUTTON = 1;
 
-    /* Non-blocking blink tracking variables */
-    uint32_t last_toggle_time = 0;
-    const uint32_t blink_interval_ms = 200; /* Toggle every 200 ms (500 ms full cycle) */
+    /* Initially switch OFF the buzzer and speaker */
+    BUZZER = 0;
 
-    /* Infinite loop */
     while (1)
     {
-        /*
-         * Active LOW pushbutton:
-         * Pressed  -> GPIO_PIN_RESET
-         * Released -> GPIO_PIN_SET
-         */
-        if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
+        /* Check whether the push button is pressed */
+        if (BUTTON == 1)
         {
-            /* Button held: toggle LED at non-blocking intervals */
-            if (HAL_GetTick() - last_toggle_time >= blink_interval_ms)
+            /* Debouncing delay */
+            delay_ms(20);
+
+            if (BUTTON == 1)
             {
-                last_toggle_time = HAL_GetTick();
-                HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+                /* Switch ON the buzzer and speaker */
+                BUZZER = 1;
             }
         }
         else
         {
-            /* Button released: force LED off immediately */
-            HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+            /* Switch OFF the buzzer and speaker */
+            BUZZER = 0;
         }
     }
 }
-
-/**
-  * @brief System Clock Configuration for STM32G071xx
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-
-    /* Configure the main internal regulator output voltage */
-    HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-    /* Initializes the RCC Oscillators (HSI -> 16 MHz, PLL -> 64 MHz) */
-    RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSI;
-    RCC_OscInitStruct.HSIState            = RCC_HSI_ON;
-    RCC_OscInitStruct.HSIDiv              = RCC_HSI_DIV1;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-    RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_HSI;
-    RCC_OscInitStruct.PLL.PLLM            = RCC_PLLM_DIV1;
-    RCC_OscInitStruct.PLL.PLLN            = 8;
-    RCC_OscInitStruct.PLL.PLLP            = RCC_PLLP_DIV2;
-    RCC_OscInitStruct.PLL.PLLR            = RCC_PLLR_DIV2;
-
-    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    {
-        Error_Handler();
-    }
-
-    /* Initializes the CPU and AHB/APB clocks (G0 has a single PCLK1 bus) */
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
-    RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
-    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-    huart2.Instance                    = USART2;
-    huart2.Init.BaudRate               = 115200;
-    huart2.Init.WordLength             = UART_WORDLENGTH_8B;
-    huart2.Init.StopBits               = UART_STOPBITS_1;
-    huart2.Init.Parity                 = UART_PARITY_NONE;
-    huart2.Init.Mode                   = UART_MODE_TX_RX;
-    huart2.Init.HwFlowCtl              = UART_HWCONTROL_NONE;
-    huart2.Init.OverSampling           = UART_OVERSAMPLING_16;
-    huart2.Init.OneBitSampling         = UART_ONE_BIT_SAMPLE_DISABLE;
-    huart2.Init.ClockPrescaler         = UART_PRESCALER_DIV1;
-    huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-
-    if (HAL_UART_Init(&huart2) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    /* GPIO Ports Clock Enable */
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-
-    /* LED initial state = OFF */
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-
-    /* Configure LED pin (PA5) */
-    GPIO_InitStruct.Pin   = LD2_Pin;
-    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull  = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
-
-    /* Configure Button pin (PC13) */
-    GPIO_InitStruct.Pin  = B1_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-}
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-    __disable_irq();
-    while (1)
-    {
-    }
-}
-
-#ifdef USE_FULL_ASSERT
-void assert_failed(uint8_t *file, uint32_t line)
-{
-}
-#endif
 ```
-## Output
-<img width="576" height="581" alt="image" src="https://github.com/user-attachments/assets/1824232d-d27d-43da-b5ed-4351c987fd71" />
+
+## Program Explanation
+
+- `BUTTON` is assigned to the input pin `P1.2`.
+- `BUZZER` is assigned to the output pin `P3.2`.
+- `BUTTON = 1` configures the quasi-bidirectional 8051 port pin for input operation.
+- `BUZZER = 0` initially keeps the buzzer and speaker switched OFF.
+- The microcontroller continuously monitors the button inside the `while` loop.
+- A delay of approximately 20 milliseconds reduces false triggering caused by switch bouncing.
+- When the button input is HIGH, `P3.2` becomes HIGH.
+- The HIGH output drives the BC547 transistor and activates the buzzer and speaker.
+- When the input becomes LOW, the transistor, buzzer, and speaker are switched OFF.
+
+## Expected Output
+
+| Push-button condition | `P1.2` input | `P3.2` output | Buzzer and speaker |
+|---|---:|---:|---|
+| Released | LOW | LOW | OFF |
+| Pressed | HIGH | HIGH | ON |
+
+## Applications
+
+- Security alarm systems
+- Emergency warning systems
+- Doorbell circuits
+- Industrial fault indicators
+- Vehicle alert systems
+- Patient assistance systems
 
 ## Result
-The push button was successfully interfaced with the STM32 microcontroller. The LED connected to PA5 turned ON when the push button connected to PA0 was pressed (logic HIGH) and turned OFF when the push button was released (logic LOW).
-
-
-```
-Result:
-Thus the push button controlled LED by using STM32 Microcontroller is executed successfully
+The push button was successfully interfaced with the AT89C51 microcontroller. The buzzer and speaker were activated when the push button was pressed and switched OFF when the button was released.
