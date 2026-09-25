@@ -198,6 +198,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
 }
 #endif
+```
 ## Output
 <img width="576" height="581" alt="image" src="https://github.com/user-attachments/assets/1824232d-d27d-43da-b5ed-4351c987fd71" />
 
